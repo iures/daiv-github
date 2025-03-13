@@ -1,4 +1,4 @@
-module github.com/iures/daiv-github
+module daiv-github
 
 go 1.23.6
 
