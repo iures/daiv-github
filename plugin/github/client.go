@@ -10,6 +10,48 @@ import (
 	plug "github.com/iures/daivplug"
 )
 
+// GitHubConfig represents the configuration for the GitHub client
+type GitHubConfig struct {
+	Username     string
+	Token        string
+	Organization string
+	Repositories []string
+	QueryOptions QueryOptions
+}
+
+// GitHubClient provides a client for interacting with GitHub
+type GitHubClient struct {
+	client     *externalGithub.Client
+	config     *GitHubConfig
+	repository GitHubRepository
+}
+
+// NewGitHubClient creates a new GitHubClient
+func NewGitHubClient(config *GitHubConfig) (*GitHubClient, error) {
+	authToken := externalGithub.BasicAuthTransport{
+		Username: config.Username,
+		Password: config.Token,
+	}
+	
+	client := externalGithub.NewClient(authToken.Client())
+	
+	githubClient := &GitHubClient{
+		client: client,
+		config: config,
+	}
+	
+	// Create the repository
+	repository := NewGitHubAPIRepository(client, config.Username)
+	githubClient.repository = repository
+	
+	return githubClient, nil
+}
+
+// GetRepository returns the GitHub repository
+func (g *GitHubClient) GetRepository() GitHubRepository {
+	return g.repository
+}
+
 type GithubClientSettings struct {
 	Username string
 	Token string
