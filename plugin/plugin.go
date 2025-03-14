@@ -10,6 +10,7 @@ import (
 	plug "github.com/iures/daivplug"
 )
 
+// GitHubPlugin represents the GitHub plugin for the daiv platform
 type GitHubPlugin struct {
 	client    *github.GitHubClient
 	config    *github.GitHubConfig
@@ -17,14 +18,17 @@ type GitHubPlugin struct {
 	formatter github.ReportFormatter
 }
 
+// New creates a new instance of the GitHub plugin
 func New() *GitHubPlugin {
 	return &GitHubPlugin{}
 }
 
+// Name returns the name of the plugin
 func (g *GitHubPlugin) Name() string {
 	return "github"
 }
 
+// Manifest returns the plugin manifest with configuration options
 func (g *GitHubPlugin) Manifest() *plug.PluginManifest {
 	return &plug.PluginManifest{
 		ConfigKeys: []plug.ConfigKey{
@@ -81,82 +85,48 @@ func (g *GitHubPlugin) Manifest() *plug.PluginManifest {
 	}
 }
 
+// Initialize sets up the plugin with the provided settings
 func (g *GitHubPlugin) Initialize(settings map[string]any) error {
+	// Get GitHub token from the CLI
 	token, err := getGhCliToken()
 	if err != nil {
-		return fmt.Errorf("failed to get gh cli token: %w", err)
+		return github.NewAuthenticationError("failed to get GitHub CLI token", err)
 	}
 
-	reposStr, ok := settings["github.repositories"].(string)
-	if !ok {
-		return fmt.Errorf("repositories are required")
+	// Create a map with the token
+	configMap := make(map[string]any)
+	for k, v := range settings {
+		configMap[k] = v
 	}
-	repos := strings.Split(reposStr, ",")
-	// Trim whitespace from each repository
-	for i, repo := range repos {
-		repos[i] = strings.TrimSpace(repo)
-	}
+	configMap["github.token"] = token
 
-	username, ok := settings["github.username"].(string)
-	if !ok {
-		return fmt.Errorf("username is required")
-	}
-	
-	org, ok := settings["github.organization"].(string)
-	if !ok {
-		return fmt.Errorf("organization is required")
-	}
+	// Create config provider and loader
+	provider := github.NewMapConfigProvider(configMap)
+	loader := github.NewConfigLoader(provider)
 
-	// Create default query options
-	queryOptions := github.DefaultQueryOptions()
-
-	// Override with user-provided options if available
-	if baseBranch, ok := settings["github.query.base_branch"].(string); ok && baseBranch != "" {
-		queryOptions.BaseBranch = baseBranch
+	// Load configuration
+	config, err := loader.LoadConfig()
+	if err != nil {
+		return err
 	}
+	g.config = config
 
-	if includeAuthored, ok := settings["github.query.include_authored"].(string); ok && includeAuthored != "" {
-		queryOptions.IncludeAuthored = includeAuthored == "true"
-	}
-
-	if includeReviewed, ok := settings["github.query.include_reviewed"].(string); ok && includeReviewed != "" {
-		queryOptions.IncludeReviewed = includeReviewed == "true"
-	}
-
-	// Create the config
-	config := &github.GitHubConfig{
-		Username:     username,
-		Token:        token,
-		Organization: org,
-		Repositories: repos,
-		QueryOptions: queryOptions,
-	}
-
-	// Create the client
+	// Create client
 	client, err := github.NewGitHubClient(config)
 	if err != nil {
-		return fmt.Errorf("failed to create GitHub client: %w", err)
+		return github.NewConfigurationError("failed to create GitHub client", err)
 	}
-
 	g.client = client
-	g.config = config
-	
-	// Create the service
+
+	// Create service
 	g.service = github.NewActivityService(client.GetRepository(), config)
 
-	// Set the formatter based on configuration
-	format, ok := settings["github.format"].(string)
-	if !ok || format == "" {
-		format = "markdown" // Default to markdown if not specified
-	}
-
-	switch format {
+	// Create formatter based on format
+	switch config.Format {
 	case "json":
 		g.formatter = github.NewJSONFormatter()
 	case "html":
 		g.formatter = github.NewHTMLFormatter()
-	case "markdown":
-		g.formatter = github.NewMarkdownFormatter()
 	default:
 		g.formatter = github.NewMarkdownFormatter()
 	}
@@ -164,37 +134,41 @@ func (g *GitHubPlugin) Initialize(settings map[string]any) error {
 	return nil
 }
 
+// Shutdown cleans up resources when the plugin is being shut down
 func (g *GitHubPlugin) Shutdown() error {
+	// No resources to clean up in this plugin
 	return nil
 }
 
+// GetContext retrieves the GitHub activity context for the given time range
 func (g *GitHubPlugin) GetStandupContext(timeRange plug.TimeRange) (plug.StandupContext, error) {
 	// Get activity report from service
 	report, err := g.service.GetActivityReport(timeRange)
 	if err != nil {
-		return plug.StandupContext{}, fmt.Errorf("failed to get activity report: %w", err)
+		return plug.StandupContext{}, github.NewInternalError("failed to get activity report", err)
 	}
-	
-	// Format the report using the configured formatter
+
+	// Format the report
 	formattedContent, err := g.formatter.Format(report)
 	if err != nil {
-		return plug.StandupContext{}, fmt.Errorf("failed to format activity report: %w", err)
+		return plug.StandupContext{}, github.NewInternalError("failed to format report", err)
 	}
 
 	return plug.StandupContext{
 		PluginName: g.Name(),
-		Content:    formattedContent.Content,
+		Content: formattedContent.Content,
 	}, nil
 }
 
+// getGhCliToken retrieves the GitHub token from the GitHub CLI
 func getGhCliToken() (string, error) {
 	cmd := exec.Command("gh", "auth", "token")
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("gh cli error: %s", string(exitErr.Stderr))
+			return "", fmt.Errorf("GitHub CLI error: %s", string(exitErr.Stderr))
 		}
-		return "", fmt.Errorf("failed to execute gh cli: %v", err)
+		return "", fmt.Errorf("failed to execute GitHub CLI: %v", err)
 	}
 	return strings.TrimSpace(string(output)), nil
 }

@@ -8,6 +8,6 @@ import (
 
 // Standup generates a standup context for GitHub activity
 // This is kept for backward compatibility
-func Standup(client *github.GithubClient, timeRange plug.TimeRange) (string, error) {
+func Standup(client *github.GitHubClient, timeRange plug.TimeRange) (string, error) {
 	return client.GetStandupContext(timeRange)
 }

@@ -1,6 +1,10 @@
 package github
 
-import "time"
+import (
+	"time"
+
+	plug "github.com/iures/daivplug"
+)
 
 // ActivityReport represents processed GitHub activity data for a specific time range
 type ActivityReport struct {
@@ -9,7 +13,7 @@ type ActivityReport struct {
 	Repositories []Repository
 }
 
-// TimeRange represents a time period for the report
+// TimeRange represents a time period with start and end times
 type TimeRange struct {
 	Start time.Time
 	End   time.Time
@@ -17,13 +21,23 @@ type TimeRange struct {
 
 // IsInRange checks if a given time is within the time range
 func (tr TimeRange) IsInRange(t time.Time) bool {
-	return (t.Equal(tr.Start) || t.After(tr.Start)) && t.Before(tr.End)
+	return (t.Equal(tr.Start) || t.After(tr.Start)) && 
+	       (t.Equal(tr.End) || t.Before(tr.End))
+}
+
+// FromPlugTimeRange converts a plug.TimeRange to a github.TimeRange
+func FromPlugTimeRange(tr plug.TimeRange) TimeRange {
+	return TimeRange{
+		Start: tr.Start,
+		End:   tr.End,
+	}
 }
 
 // User represents a GitHub user
 type User struct {
 	Username string
 	Email    string
+	Name     string
 }
 
 // Repository represents a GitHub repository with activity
@@ -37,19 +51,23 @@ type Repository struct {
 type PullRequest struct {
 	Number      int
 	Title       string
-	URL         string
 	State       string
+	Author      string
+	URL         string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	Author      string
 	Commits     []Commit
-	Reviews     []Review
 	Comments    []Comment
-	IsAuthored  bool
+	Reviews     []Review
 	IsReviewed  bool
+	IsAuthored  bool
+	BaseBranch  string
+	HeadBranch  string
+	Repository  string
+	Organization string
 }
 
-// Commit represents a commit in a pull request
+// Commit represents a Git commit
 type Commit struct {
 	SHA       string
 	Message   string
@@ -60,51 +78,37 @@ type Commit struct {
 // Review represents a review on a pull request
 type Review struct {
 	ID        int64
-	Author    string
 	State     string
 	Body      string
+	Author    string
 	Timestamp time.Time
 }
 
 // Comment represents a comment on a pull request
 type Comment struct {
 	ID        int64
-	Author    string
 	Body      string
+	Author    string
 	Timestamp time.Time
-	Path      string
-	Position  int
+	URL       string
 }
 
-// QueryOptions represents configurable options for GitHub queries
+// QueryOptions represents options for querying GitHub data
 type QueryOptions struct {
-	// Base branch to filter pull requests by
-	BaseBranch string
-	
-	// Maximum number of results to return
-	MaxResults int
-	
-	// Whether to include authored pull requests
-	IncludeAuthored bool
-	
-	// Whether to include reviewed pull requests
-	IncludeReviewed bool
-	
-	// Whether to include comments
-	IncludeComments bool
-	
-	// Whether to include commits
-	IncludeCommits bool
+	IncludeAuthored  bool
+	IncludeReviewed  bool
+	IncludeCommits   bool
+	IncludeComments  bool
+	BaseBranch       string
 }
 
 // DefaultQueryOptions returns the default query options
 func DefaultQueryOptions() QueryOptions {
 	return QueryOptions{
-		BaseBranch:      "master",
-		MaxResults:      100,
-		IncludeAuthored: true,
-		IncludeReviewed: true,
-		IncludeComments: true,
-		IncludeCommits:  true,
+		IncludeAuthored:  true,
+		IncludeReviewed:  true,
+		IncludeCommits:   true,
+		IncludeComments:  true,
+		BaseBranch:       "master",
 	}
 } 

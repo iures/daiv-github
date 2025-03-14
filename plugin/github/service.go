@@ -1,8 +1,10 @@
 package github
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	plug "github.com/iures/daivplug"
 )
@@ -23,16 +25,25 @@ func NewActivityService(repository GitHubRepository, config *GitHubConfig) *Acti
 
 // GetActivityReport retrieves and processes GitHub activity data for the given time range
 func (s *ActivityService) GetActivityReport(pluginTimeRange plug.TimeRange) (*ActivityReport, error) {
+	// Create a context with timeout
+	ctx, cancel := NewContextWithTimeout(30 * time.Second)
+	defer cancel()
+
 	// Convert plugin.TimeRange to our domain TimeRange
 	timeRange := TimeRange{
 		Start: pluginTimeRange.Start,
 		End:   pluginTimeRange.End,
 	}
 
+	// Add context values
+	ctx = WithUsername(ctx, s.config.Username)
+	ctx = WithOrganization(ctx, s.config.Organization)
+	ctx = WithTimeRange(ctx, timeRange)
+
 	// Get the current user
-	user, err := s.repository.GetUser()
+	user, err := s.repository.GetUser(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, NewInternalError("failed to get user", err)
 	}
 
 	// Create the activity report
@@ -44,16 +55,16 @@ func (s *ActivityService) GetActivityReport(pluginTimeRange plug.TimeRange) (*Ac
 
 	// Process repositories concurrently
 	if len(s.config.Repositories) > 1 {
-		report.Repositories = s.processRepositoriesConcurrently(timeRange)
+		report.Repositories = s.processRepositoriesConcurrently(ctx, timeRange)
 	} else {
-		report.Repositories = s.processRepositoriesSequentially(timeRange)
+		report.Repositories = s.processRepositoriesSequentially(ctx, timeRange)
 	}
 
 	return report, nil
 }
 
 // processRepositoriesConcurrently processes repositories in parallel
-func (s *ActivityService) processRepositoriesConcurrently(timeRange TimeRange) []Repository {
+func (s *ActivityService) processRepositoriesConcurrently(ctx context.Context, timeRange TimeRange) []Repository {
 	var wg sync.WaitGroup
 	resultChan := make(chan Repository, len(s.config.Repositories))
 
@@ -61,10 +72,13 @@ func (s *ActivityService) processRepositoriesConcurrently(timeRange TimeRange) [
 		wg.Add(1)
 		go func(repoName string) {
 			defer wg.Done()
-			repo, err := s.processRepository(s.config.Organization, repoName, timeRange)
+			
+			// Create a repository-specific context
+			repoCtx := WithRepository(ctx, repoName)
+			
+			repo, err := s.processRepository(repoCtx, s.config.Organization, repoName, timeRange)
 			if err != nil {
 				// Log error but continue with other repositories
-				fmt.Printf("Error processing repository %s: %v\n", repoName, err)
 				return
 			}
 			resultChan <- repo
@@ -87,14 +101,16 @@ func (s *ActivityService) processRepositoriesConcurrently(timeRange TimeRange) [
 }
 
 // processRepositoriesSequentially processes repositories sequentially
-func (s *ActivityService) processRepositoriesSequentially(timeRange TimeRange) []Repository {
+func (s *ActivityService) processRepositoriesSequentially(ctx context.Context, timeRange TimeRange) []Repository {
 	repositories := make([]Repository, 0, len(s.config.Repositories))
 
 	for _, repoName := range s.config.Repositories {
-		repo, err := s.processRepository(s.config.Organization, repoName, timeRange)
+		// Create a repository-specific context
+		repoCtx := WithRepository(ctx, repoName)
+		
+		repo, err := s.processRepository(repoCtx, s.config.Organization, repoName, timeRange)
 		if err != nil {
 			// Log error but continue with other repositories
-			fmt.Printf("Error processing repository %s: %v\n", repoName, err)
 			continue
 		}
 		repositories = append(repositories, repo)
@@ -104,21 +120,18 @@ func (s *ActivityService) processRepositoriesSequentially(timeRange TimeRange) [
 }
 
 // processRepository processes a single repository
-func (s *ActivityService) processRepository(org string, repoName string, timeRange TimeRange) (Repository, error) {
+func (s *ActivityService) processRepository(ctx context.Context, org string, repoName string, timeRange TimeRange) (Repository, error) {
+	// Get pull requests for the repository
+	pullRequests, err := s.repository.GetPullRequests(ctx, org, repoName, timeRange, s.config.QueryOptions)
+	if err != nil {
+		return Repository{}, NewAPIError(fmt.Sprintf("failed to get pull requests for %s/%s", org, repoName), err)
+	}
+
+	// Create the repository
 	repository := Repository{
 		Name:         repoName,
 		Organization: org,
-	}
-
-	// Get pull requests for the repository
-	pullRequests, err := s.repository.GetPullRequests(org, repoName, timeRange, s.config.QueryOptions)
-	if err != nil {
-		return repository, fmt.Errorf("failed to get pull requests for %s/%s: %w", org, repoName, err)
-	}
-
-	// Only include repositories with activity
-	if len(pullRequests) > 0 {
-		repository.PullRequests = pullRequests
+		PullRequests: pullRequests,
 	}
 
 	return repository, nil
