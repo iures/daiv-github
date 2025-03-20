@@ -200,40 +200,11 @@ func (l *ConfigLoader) LoadConfig() (*GitHubConfig, error) {
 		format = "markdown"
 	}
 
-	// Create query options
-	queryOptions := DefaultQueryOptions()
-
-	baseBranch, ok := l.provider.GetString("github.query.base_branch")
-	if ok && baseBranch != "" {
-		queryOptions.BaseBranch = baseBranch
-	}
-
-	includeAuthored, ok := l.provider.GetBool("github.query.include_authored")
-	if ok {
-		queryOptions.IncludeAuthored = includeAuthored
-	}
-
-	includeReviewed, ok := l.provider.GetBool("github.query.include_reviewed")
-	if ok {
-		queryOptions.IncludeReviewed = includeReviewed
-	}
-
-	includeCommits, ok := l.provider.GetBool("github.query.include_commits")
-	if ok {
-		queryOptions.IncludeCommits = includeCommits
-	}
-
-	includeComments, ok := l.provider.GetBool("github.query.include_comments")
-	if ok {
-		queryOptions.IncludeComments = includeComments
-	}
-
 	return &GitHubConfig{
 		Username:     username,
 		Token:        token,
 		Organization: organization,
 		Repositories: repositories,
-		QueryOptions: queryOptions,
 		Format:       format,
 	}, nil
 } 

@@ -44,41 +44,13 @@ func (g *GitHubPlugin) Manifest() *plug.PluginManifest {
 				Key:         "github.organization",
 				Name:        "GitHub Organization",
 				Description: "The GitHub organization to monitor",
-				Required:    true,
-			},
-			{
-				Type:        plug.ConfigTypeMultiline,
-				Key:         "github.repositories",
-				Name:        "GitHub Repositories",
-				Description: "List of repositories to monitor (comma-separated)",
-				Required:    true,
+				Required:    false,
 			},
 			{
 				Type:        plug.ConfigTypeString,
 				Key:         "github.format",
 				Name:        "Report Format",
 				Description: "The format for the activity report (json, markdown, or html)",
-				Required:    false,
-			},
-			{
-				Type:        plug.ConfigTypeString,
-				Key:         "github.query.base_branch",
-				Name:        "Base Branch",
-				Description: "The base branch to filter pull requests by (default: master)",
-				Required:    false,
-			},
-			{
-				Type:        plug.ConfigTypeString,
-				Key:         "github.query.include_authored",
-				Name:        "Include Authored PRs",
-				Description: "Whether to include authored pull requests (true/false)",
-				Required:    false,
-			},
-			{
-				Type:        plug.ConfigTypeString,
-				Key:         "github.query.include_reviewed",
-				Name:        "Include Reviewed PRs",
-				Description: "Whether to include reviewed pull requests (true/false)",
 				Required:    false,
 			},
 		},
@@ -119,16 +91,14 @@ func (g *GitHubPlugin) Initialize(settings map[string]any) error {
 	g.client = client
 
 	// Create service
-	g.service = github.NewActivityService(client.GetRepository(), config)
+	g.service = github.NewActivityService(client)
 
 	// Create formatter based on format
 	switch config.Format {
 	case "json":
 		g.formatter = github.NewJSONFormatter()
-	case "html":
-		g.formatter = github.NewHTMLFormatter()
 	default:
-		g.formatter = github.NewMarkdownFormatter()
+		g.formatter = github.NewJSONFormatter()
 	}
 
 	return nil
@@ -140,23 +110,20 @@ func (g *GitHubPlugin) Shutdown() error {
 	return nil
 }
 
-// GetContext retrieves the GitHub activity context for the given time range
 func (g *GitHubPlugin) GetStandupContext(timeRange plug.TimeRange) (plug.StandupContext, error) {
-	// Get activity report from service
-	report, err := g.service.GetActivityReport(timeRange)
+	report, err := g.service.GetGithubActivityReport(timeRange)
 	if err != nil {
-		return plug.StandupContext{}, github.NewInternalError("failed to get activity report", err)
+		return plug.StandupContext{}, github.NewInternalError("failed to get github activity", err)
 	}
 
-	// Format the report
-	formattedContent, err := g.formatter.Format(report)
+	content, err := g.formatter.Format(report)
 	if err != nil {
-		return plug.StandupContext{}, github.NewInternalError("failed to format report", err)
+		return plug.StandupContext{}, github.NewInternalError("failed to format github activity", err)
 	}
 
 	return plug.StandupContext{
 		PluginName: g.Name(),
-		Content: formattedContent.Content,
+		Content:    content.Content,
 	}, nil
 }
 
