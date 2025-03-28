@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	
+
 	externalGithub "github.com/google/go-github/v68/github"
 )
 
@@ -170,16 +170,7 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 					
 					// Show comment preview
 					if comment != nil && comment.GetBody() != "" {
-						commentBody := comment.GetBody()
-						if len(commentBody) > 100 {
-							// Truncate long comments and show first line
-							if idx := strings.Index(commentBody, "\n"); idx != -1 && idx < 100 {
-								commentBody = commentBody[:idx] + "..."
-							} else {
-								commentBody = commentBody[:97] + "..."
-							}
-						}
-						eventLine += fmt.Sprintf("\n  Comment: %s", commentBody)
+						eventLine += fmt.Sprintf("\n  Comment: %s", comment.GetBody())
 					}
 				}
 			}
@@ -213,16 +204,7 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 						
 						// Show review body
 						if review.GetBody() != "" {
-							reviewBody := review.GetBody()
-							if len(reviewBody) > 100 {
-								// Truncate long reviews and show first line
-								if idx := strings.Index(reviewBody, "\n"); idx != -1 && idx < 100 {
-									reviewBody = reviewBody[:idx] + "..."
-								} else {
-									reviewBody = reviewBody[:97] + "..."
-								}
-							}
-							eventLine += fmt.Sprintf("\n  Comment: %s", reviewBody)
+							eventLine += fmt.Sprintf("\n  Comment: %s", review.GetBody())
 						}
 					}
 				}
@@ -253,16 +235,7 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 						
 						// Show comment body
 						if comment.GetBody() != "" {
-							commentBody := comment.GetBody()
-							if len(commentBody) > 100 {
-								// Truncate long comments and show first line
-								if idx := strings.Index(commentBody, "\n"); idx != -1 && idx < 100 {
-									commentBody = commentBody[:idx] + "..."
-								} else {
-									commentBody = commentBody[:97] + "..."
-								}
-							}
-							eventLine += fmt.Sprintf("\n  Comment: %s", commentBody)
+							eventLine += fmt.Sprintf("\n  Comment: %s", comment.GetBody())
 						}
 					}
 				}
