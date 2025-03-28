@@ -39,20 +39,6 @@ func (g *GitHubPlugin) Manifest() *plug.PluginManifest {
 				Description: "Your GitHub username",
 				Required:    true,
 			},
-			{
-				Type:        plug.ConfigTypeString,
-				Key:         "github.organization",
-				Name:        "GitHub Organization",
-				Description: "The GitHub organization to monitor",
-				Required:    false,
-			},
-			{
-				Type:        plug.ConfigTypeString,
-				Key:         "github.format",
-				Name:        "Report Format",
-				Description: "The format for the activity report (json, markdown, or html)",
-				Required:    false,
-			},
 		},
 	}
 }
@@ -65,12 +51,18 @@ func (g *GitHubPlugin) Initialize(settings map[string]any) error {
 		return github.NewAuthenticationError("failed to get GitHub CLI token", err)
 	}
 
+  username, err := getGhUsername()
+  if err != nil {
+    return github.NewAuthenticationError("Failed to get GitHub CLI token", err)
+  }
+
 	// Create a map with the token
 	configMap := make(map[string]any)
 	for k, v := range settings {
 		configMap[k] = v
 	}
 	configMap["github.token"] = token
+  configMap["github.username"] = username
 
 	// Create config provider and loader
 	provider := github.NewMapConfigProvider(configMap)
@@ -91,7 +83,7 @@ func (g *GitHubPlugin) Initialize(settings map[string]any) error {
 	g.client = client
 
 	// Create service
-	g.service = github.NewActivityService(client)
+	g.service = github.NewActivityService(client.GetClient(), g.config)
 
 	// Create formatter based on format
 	switch config.Format {
@@ -138,4 +130,17 @@ func getGhCliToken() (string, error) {
 		return "", fmt.Errorf("failed to execute GitHub CLI: %v", err)
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func getGhUsername() (string, error) {
+  cmd := exec.Command("gh", "api", "user", "--jq", ".login")
+
+  output, err := cmd.Output()
+  if err != nil {
+    if exitErr, ok := err.(*exec.ExitError); ok {
+      return "", fmt.Errorf("GitHub CLI error: %s", string(exitErr.Stderr))
+    }
+    return "", fmt.Errorf("failed to execute GitHub CLI: %v", err)
+  }
+  return strings.TrimSpace(string(output)), nil
 }

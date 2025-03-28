@@ -26,7 +26,7 @@ func (s *ActivityService) GetGithubActivityReport(timeRange plug.TimeRange) (*Ac
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	events, _, err := s.client.Activity.ListEventsPerformedByUser(ctx, s.config.Username, false, &externalGithub.ListOptions{PerPage: 100})
+	events, _, err := s.client.Activity.ListEventsPerformedByUser(ctx, s.config.Username, true, &externalGithub.ListOptions{PerPage: 100})
 	if err != nil {
 		return nil, NewAPIError("failed to list events", err)
 	}
@@ -34,5 +34,8 @@ func (s *ActivityService) GetGithubActivityReport(timeRange plug.TimeRange) (*Ac
 	return &ActivityReport{
 		TimeRange: timeRange,
 		Events:    events,
+		User: User{
+			Username: s.config.Username,
+		},
 	}, nil
 }

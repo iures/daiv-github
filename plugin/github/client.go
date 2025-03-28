@@ -2,14 +2,13 @@ package github
 
 import (
 	externalGithub "github.com/google/go-github/v68/github"
+	plug "github.com/iures/daivplug"
 )
 
 // GitHubConfig represents the configuration for the GitHub client
 type GitHubConfig struct {
 	Username     string
 	Token        string
-	Organization string
-	Repositories []string
 	Format       string
 }
 
@@ -48,4 +47,17 @@ func NewGitHubClient(config *GitHubConfig) (*GitHubClient, error) {
 // GetConfig returns the client configuration
 func (g *GitHubClient) GetConfig() *GitHubConfig {
 	return g.config
+}
+
+// GetClient returns the underlying GitHub client
+func (g *GitHubClient) GetClient() *externalGithub.Client {
+	return g.client
+}
+
+// GetStandupContext generates a standup context string for GitHub activity
+func (g *GitHubClient) GetStandupContext(timeRange plug.TimeRange) (plug.StandupContext, error) {
+  return plug.StandupContext{
+    PluginName: "github",
+    Content: "No GitHub activity found in specified time range",
+  }, nil
 }

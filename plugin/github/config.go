@@ -184,16 +184,6 @@ func (l *ConfigLoader) LoadConfig() (*GitHubConfig, error) {
 		return nil, NewValidationError("token is required", nil)
 	}
 
-	organization, ok := l.provider.GetString("github.organization")
-	if !ok || organization == "" {
-		return nil, NewValidationError("organization is required", nil)
-	}
-
-	repositories, ok := l.provider.GetStringSlice("github.repositories")
-	if !ok || len(repositories) == 0 {
-		return nil, NewValidationError("repositories are required", nil)
-	}
-
 	// Load optional values with defaults
 	format, ok := l.provider.GetString("github.format")
 	if !ok || format == "" {
@@ -203,8 +193,6 @@ func (l *ConfigLoader) LoadConfig() (*GitHubConfig, error) {
 	return &GitHubConfig{
 		Username:     username,
 		Token:        token,
-		Organization: organization,
-		Repositories: repositories,
 		Format:       format,
 	}, nil
 } 
