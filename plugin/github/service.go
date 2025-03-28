@@ -26,14 +26,26 @@ func (s *ActivityService) GetGithubActivityReport(timeRange plug.TimeRange) (*Ac
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	events, _, err := s.client.Activity.ListEventsPerformedByUser(ctx, s.config.Username, false, &externalGithub.ListOptions{PerPage: 100})
+	// Fetch all events - GitHub API doesn't support time range filtering directly
+	public_only := false
+	events, _, err := s.client.Activity.ListEventsPerformedByUser(ctx, s.config.Username, public_only, &externalGithub.ListOptions{PerPage: 100})
 	if err != nil {
 		return nil, NewAPIError("failed to list events", err)
 	}
 
+	// Filter events by time range
+	filteredEvents := []*externalGithub.Event{}
+	for _, event := range events {
+		eventTime := event.GetCreatedAt().Time
+
+		if timeRange.IsInRange(eventTime) {
+			filteredEvents = append(filteredEvents, event)
+		}
+	}
+
 	return &ActivityReport{
 		TimeRange: timeRange,
-		Events:    events,
+		Events:    filteredEvents,
 		User: User{
 			Username: s.config.Username,
 		},

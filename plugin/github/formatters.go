@@ -57,7 +57,7 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 		timestamp := event.GetCreatedAt().Format("2006-01-02 15:04:05")
 
 		// Base event info
-		eventLine := "- " + eventType + " on " + repo + " at " + timestamp
+		eventLine := "\n\n- " + eventType + " on " + repo + " at " + timestamp
 		
 		// Add specific details for different event types
 		if eventType == "PushEvent" {
@@ -68,9 +68,14 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 				if pushEvent.GetForced() {
 					continue
 				}
-				
+
 				// Extract branch/ref information
 				ref := pushEvent.GetRef()
+
+				if ref == "staging" {
+					continue
+				}
+
 				if ref != "" {
 					// Convert refs/heads/main to just "main"
 					branchName := ref
