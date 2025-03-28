@@ -64,6 +64,11 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 			var pushEvent externalGithub.PushEvent
 			err := json.Unmarshal(event.GetRawPayload(), &pushEvent)
 			if err == nil {
+				// Check if this is a force push and skip it
+				if pushEvent.GetForced() {
+					continue
+				}
+				
 				// Extract branch/ref information
 				ref := pushEvent.GetRef()
 				if ref != "" {
