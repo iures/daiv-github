@@ -59,7 +59,7 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 		// Base event info
 		eventLine := "- " + eventType + " on " + repo + " at " + timestamp
 		
-		// Add specific details for PushEvent
+		// Add specific details for different event types
 		if eventType == "PushEvent" {
 			var pushEvent externalGithub.PushEvent
 			err := json.Unmarshal(event.GetRawPayload(), &pushEvent)
@@ -100,6 +100,46 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 							}
 							eventLine += "\n    - " + message
 						}
+					}
+				}
+			}
+		} else if eventType == "PullRequestEvent" {
+			var prEvent externalGithub.PullRequestEvent
+			err := json.Unmarshal(event.GetRawPayload(), &prEvent)
+			if err == nil {
+				// Get action (opened, closed, merged, etc.)
+				action := prEvent.GetAction()
+				
+				// Get PR details
+				pr := prEvent.GetPullRequest()
+				if pr != nil {
+					prNumber := pr.GetNumber()
+					prTitle := pr.GetTitle()
+					
+					// Add PR information
+					eventLine += fmt.Sprintf("\n  PR #%d: %s", prNumber, prTitle)
+					eventLine += fmt.Sprintf("\n  Action: %s", action)
+					
+					// Show merged status if PR is closed
+					if action == "closed" && pr.GetMerged() {
+						eventLine += "\n  Merged: Yes"
+					} else if action == "closed" {
+						eventLine += "\n  Merged: No (closed without merging)"
+					}
+					
+					// Show base and head branches
+					if pr.GetBase() != nil && pr.GetBase().GetRef() != "" {
+						eventLine += fmt.Sprintf("\n  Base: %s", pr.GetBase().GetRef())
+					}
+					
+					if pr.GetHead() != nil && pr.GetHead().GetRef() != "" {
+						eventLine += fmt.Sprintf("\n  Head: %s", pr.GetHead().GetRef())
+					}
+					
+					// Show number of commits, additions, deletions if available
+					if pr.GetCommits() > 0 || pr.GetAdditions() > 0 || pr.GetDeletions() > 0 {
+						eventLine += fmt.Sprintf("\n  Changes: %d commits, +%d -%d", 
+							pr.GetCommits(), pr.GetAdditions(), pr.GetDeletions())
 					}
 				}
 			}
