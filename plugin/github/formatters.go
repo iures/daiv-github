@@ -143,6 +143,130 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 					}
 				}
 			}
+		} else if eventType == "IssueCommentEvent" {
+			var commentEvent externalGithub.IssueCommentEvent
+			err := json.Unmarshal(event.GetRawPayload(), &commentEvent)
+			if err == nil {
+				issue := commentEvent.GetIssue()
+				comment := commentEvent.GetComment()
+				
+				if issue != nil {
+					issueTitle := issue.GetTitle()
+					issueNumber := issue.GetNumber()
+					isPR := issue.IsPullRequest()
+					
+					// Show type (PR or Issue)
+					itemType := "Issue"
+					if isPR {
+						itemType = "PR"
+					}
+					
+					// Show issue/PR title if available
+					if issueTitle != "" {
+						eventLine += fmt.Sprintf("\n  %s #%d: %s", itemType, issueNumber, issueTitle)
+					} else {
+						eventLine += fmt.Sprintf("\n  %s #%d", itemType, issueNumber)
+					}
+					
+					// Show comment preview
+					if comment != nil && comment.GetBody() != "" {
+						commentBody := comment.GetBody()
+						if len(commentBody) > 100 {
+							// Truncate long comments and show first line
+							if idx := strings.Index(commentBody, "\n"); idx != -1 && idx < 100 {
+								commentBody = commentBody[:idx] + "..."
+							} else {
+								commentBody = commentBody[:97] + "..."
+							}
+						}
+						eventLine += fmt.Sprintf("\n  Comment: %s", commentBody)
+					}
+				}
+			}
+		} else if eventType == "PullRequestReviewEvent" {
+			var reviewEvent externalGithub.PullRequestReviewEvent
+			err := json.Unmarshal(event.GetRawPayload(), &reviewEvent)
+			if err == nil {
+				// Get review details
+				review := reviewEvent.GetReview()
+				pr := reviewEvent.GetPullRequest()
+				
+				if pr != nil {
+					prNumber := pr.GetNumber()
+					prTitle := pr.GetTitle()
+					
+					// Show PR title and number
+					eventLine += fmt.Sprintf("\n  PR #%d: %s", prNumber, prTitle)
+					
+					// Show review state (approved, commented, changes_requested)
+					if review != nil {
+						state := review.GetState()
+						stateStr := "Commented"
+						
+						if state == "APPROVED" {
+							stateStr = "Approved"
+						} else if state == "CHANGES_REQUESTED" {
+							stateStr = "Requested changes"
+						}
+						
+						eventLine += fmt.Sprintf("\n  Review: %s", stateStr)
+						
+						// Show review body
+						if review.GetBody() != "" {
+							reviewBody := review.GetBody()
+							if len(reviewBody) > 100 {
+								// Truncate long reviews and show first line
+								if idx := strings.Index(reviewBody, "\n"); idx != -1 && idx < 100 {
+									reviewBody = reviewBody[:idx] + "..."
+								} else {
+									reviewBody = reviewBody[:97] + "..."
+								}
+							}
+							eventLine += fmt.Sprintf("\n  Comment: %s", reviewBody)
+						}
+					}
+				}
+			}
+		} else if eventType == "PullRequestReviewCommentEvent" {
+			var commentEvent externalGithub.PullRequestReviewCommentEvent
+			err := json.Unmarshal(event.GetRawPayload(), &commentEvent)
+			if err == nil {
+				// Get comment details
+				comment := commentEvent.GetComment()
+				pr := commentEvent.GetPullRequest()
+				
+				if pr != nil {
+					prNumber := pr.GetNumber()
+					prTitle := pr.GetTitle()
+					
+					// Show PR title and number
+					eventLine += fmt.Sprintf("\n  PR #%d: %s", prNumber, prTitle)
+					
+					// Show comment details
+					if comment != nil {
+						// Show file path and line if available
+						if comment.GetPath() != "" {
+							path := comment.GetPath()
+							line := comment.GetLine()
+							eventLine += fmt.Sprintf("\n  File: %s:%d", path, line)
+						}
+						
+						// Show comment body
+						if comment.GetBody() != "" {
+							commentBody := comment.GetBody()
+							if len(commentBody) > 100 {
+								// Truncate long comments and show first line
+								if idx := strings.Index(commentBody, "\n"); idx != -1 && idx < 100 {
+									commentBody = commentBody[:idx] + "..."
+								} else {
+									commentBody = commentBody[:97] + "..."
+								}
+							}
+							eventLine += fmt.Sprintf("\n  Comment: %s", commentBody)
+						}
+					}
+				}
+			}
 		}
 		
 		content += eventLine + "\n\n"
