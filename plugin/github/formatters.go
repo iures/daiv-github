@@ -94,10 +94,7 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 						
 						message := commit.GetMessage()
 						if message != "" {
-							// Truncate long messages and show only first line
-							if len(message) > 60 {
-								message = message[:57] + "..."
-							}
+							// Only show the first line of the commit message
 							if idx := strings.Index(message, "\n"); idx != -1 {
 								message = message[:idx]
 							}
