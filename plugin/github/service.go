@@ -26,7 +26,7 @@ func (s *ActivityService) GetGithubActivityReport(timeRange plug.TimeRange) (*Ac
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Fetch all events - GitHub API doesn't support time range filtering directly
+	// Fetch all events (both public and private)
 	public_only := false
 	events, _, err := s.client.Activity.ListEventsPerformedByUser(ctx, s.config.Username, public_only, &externalGithub.ListOptions{PerPage: 100})
 	if err != nil {
