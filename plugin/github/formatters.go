@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	externalGithub "github.com/google/go-github/v68/github"
@@ -65,16 +66,12 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 			err := json.Unmarshal(event.GetRawPayload(), &pushEvent)
 			if err == nil {
 				// Check if this is a force push and skip it
-				if pushEvent.GetForced() {
-					continue
-				}
+				// if pushEvent.GetForced() {
+				// 	continue
+				// }
 
 				// Extract branch/ref information
 				ref := pushEvent.GetRef()
-
-				if ref == "staging" {
-					continue
-				}
 
 				if ref != "" {
 					// Convert refs/heads/main to just "main"
@@ -82,8 +79,15 @@ func (f *JSONFormatter) Format(report *ActivityReport) (*FormattedContent, error
 					if len(ref) > 11 && ref[:11] == "refs/heads/" {
 						branchName = ref[11:]
 					}
+
+					if branchName == "staging" {
+						continue
+					}
+
 					eventLine += "\n  Branch: " + branchName
 				}
+
+				eventLine += "\n  Forced: " + strconv.FormatBool(pushEvent.GetForced())
 				
 				// Extract commit count
 				commits := pushEvent.Commits
